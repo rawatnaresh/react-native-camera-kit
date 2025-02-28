@@ -8,10 +8,10 @@ import androidx.annotation.ColorInt
 import com.rncamerakit.R
 import kotlin.math.max
 import kotlin.math.min
-
 class BarcodeFrame(context: Context) : View(context) {
     private var borderPaint: Paint = Paint()
     private var laserPaint: Paint = Paint()
+    private var overlayPaint: Paint = Paint()
     var frameRect: Rect = Rect()
 
     private var frameWidth = 0
@@ -21,11 +21,13 @@ class BarcodeFrame(context: Context) : View(context) {
     private var laserY = 0
 
     private fun init(context: Context) {
-        borderPaint = Paint()
         borderPaint.style = Paint.Style.STROKE
-        borderPaint.strokeWidth = STROKE_WIDTH.toFloat()
+        borderPaint.strokeWidth = BORDER_STROKE_WIDTH.toFloat()
         laserPaint.style = Paint.Style.STROKE
-        laserPaint.strokeWidth = STROKE_WIDTH.toFloat()
+        laserPaint.strokeWidth = LASER_STROKE_WIDTH.toFloat()
+        // Initialize overlay paint
+        overlayPaint.color = Color.parseColor("#80000000")
+        overlayPaint.style = Paint.Style.FILL
         borderMargin = context.resources.getDimensionPixelSize(R.dimen.border_length)
     }
 
@@ -33,8 +35,8 @@ class BarcodeFrame(context: Context) : View(context) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
         val marginHeight = 40
         val marginWidth = 40
-        val frameMaxWidth = 1200
-        val frameMaxHeight = 600
+        val frameMaxWidth = 700
+        val frameMaxHeight = 700
         val frameMinWidth = 100
         val frameMinHeight = 100
         frameWidth = max(frameMinWidth, min(frameMaxWidth, measuredWidth - (marginWidth * 2)))
@@ -48,13 +50,24 @@ class BarcodeFrame(context: Context) : View(context) {
     override fun onDraw(canvas: Canvas) {
         val timeElapsed = System.currentTimeMillis() - previousFrameTime
         super.onDraw(canvas)
-        drawBorder(canvas)
+        // order determines which one gets painted first
+        // laser should be behind borders
+        drawOverlay(canvas)
         drawLaser(canvas, timeElapsed)
+        drawBorder(canvas)
         previousFrameTime = System.currentTimeMillis()
         this.invalidate(frameRect)
     }
 
+    private fun drawOverlay(canvas: Canvas) {
+        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), overlayPaint)
+        val clearPaint = Paint()
+        clearPaint.xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
+        canvas.drawRect(frameRect, clearPaint)
+    }
+
     private fun drawBorder(canvas: Canvas) {
+        borderPaint.strokeCap = Paint.Cap.ROUND
         canvas.drawLine(frameRect.left.toFloat(), frameRect.top.toFloat(), frameRect.left.toFloat(), (frameRect.top + borderMargin).toFloat(), borderPaint)
         canvas.drawLine(frameRect.left.toFloat(), frameRect.top.toFloat(), (frameRect.left + borderMargin).toFloat(), frameRect.top.toFloat(), borderPaint)
         canvas.drawLine(frameRect.left.toFloat(), frameRect.bottom.toFloat(), frameRect.left.toFloat(), (frameRect.bottom - borderMargin).toFloat(), borderPaint)
@@ -67,7 +80,7 @@ class BarcodeFrame(context: Context) : View(context) {
 
     private fun drawLaser(canvas: Canvas, timeElapsed: Long) {
         if (laserY > frameRect.bottom || laserY < frameRect.top) laserY = frameRect.top
-        canvas.drawLine((frameRect.left + STROKE_WIDTH).toFloat(), laserY.toFloat(), (frameRect.right - STROKE_WIDTH).toFloat(), laserY.toFloat(), laserPaint)
+        canvas.drawLine((frameRect.left + LASER_STROKE_WIDTH).toFloat(), laserY.toFloat(), (frameRect.right - LASER_STROKE_WIDTH).toFloat(), laserY.toFloat(), laserPaint)
         laserY += (timeElapsed / ANIMATION_SPEED).toInt()
     }
 
@@ -80,7 +93,8 @@ class BarcodeFrame(context: Context) : View(context) {
     }
 
     companion object {
-        private const val STROKE_WIDTH = 5
+        private const val LASER_STROKE_WIDTH = 5
+        private const val BORDER_STROKE_WIDTH = 25
         private const val ANIMATION_SPEED = 4
     }
 
